@@ -1,0 +1,4 @@
+trainingData
+testData
+prediction
+*.hdf5
