@@ -3,7 +3,7 @@
 
 # # PascalVOC2012から特定のインデックス画像をピックアップする
 
-# In[15]:
+# In[1]:
 
 
 INPUT_PATH = '0_input\VOCdevkit\VOC2012'
@@ -18,7 +18,7 @@ INDEX_DOG = 12
 
 # ## 特定のインデックスを抽出&別フォルダに出力
 
-# In[14]:
+# In[2]:
 
 
 from PIL import Image
@@ -79,9 +79,11 @@ if __name__ == "__main__":
 
 # ## 2値化してフォルダにコピーする  
 # インデックスの扱いは以下のURLを参考にした  
-# [Numpyでインデックスカラー画像（VOC2012のマスク）→RGB画像への変換をする方法](https://blog.shikoan.com/numpy-indexedcolor-to-rgb/)
+# [Numpyでインデックスカラー画像（VOC2012のマスク）→RGB画像への変換をする方法](https://blog.shikoan.com/numpy-indexedcolor-to-rgb/)  
+# 新しいパレットを設定するのは以下のURL  
+# [インデックスカラーのカラーパレットの編集](https://teratail.com/questions/187368)
 
-# In[36]:
+# In[22]:
 
 
 from PIL import Image
@@ -92,21 +94,15 @@ def binarizationImage(idx):
     ''' 
     指定したインデックス画像のみ残して2値化する
     [input] インデックス
-    [output]
+    [output] 変換したファイル数
     '''
     files = glob(OUTPUT_SEG_PATH + '*')
-
-    # パレット(Numpy配列)を取得
-    palette = np.array("")
-    for path in files:
-        if path.find('.png') < 0:
-            continue        
-        with Image.open(path) as im:
-            palette = np.array(im.getpalette(), dtype=np.uint8).reshape(-1, 3)
-            print("palette size : %s" % str(palette.shape))
-            print("target Idx : %i, RGB%s" %(idx, str(palette[idx])))
-            break
-
+    # 新しいパレット 0:黒(0,0,0), 1:白(255,255,255)
+    palette = np.array(
+        [[0, 0, 0], [255, 255, 255]]
+    )
+    
+    cnt = 0
     for path in files:
         if path.find('.png') < 0:
             continue
@@ -117,17 +113,24 @@ def binarizationImage(idx):
             reduced = p_array.copy()
             reduced[reduced != idx] = 0
             reduced[reduced == idx] = 1
+            
+            #新しいパレットを設定する
             expanded_img = np.eye(palette.shape[0], dtype=np.int32)[reduced]
-            use_pallete = palette[:palette.shape[0]].astype(np.int32)
+            use_pallete = palette[:palette.shape[0]].astype(np.int32)            
             rgb_array = np.dot(expanded_img, use_pallete).astype(np.uint8)
 
+            # 画像モードをPに変更する
+            pil_img = Image.fromarray(rgb_array)
+            pil_img = pil_img.convert("P")
+            
             # 別フォルダにコピーする
             pos = str(path).rfind("\\")
             fn =path[pos + 1:]
-            pil_img = Image.fromarray(rgb_array)
             pil_img.save(OUTPUT_BINARY_PATH + fn, quality=95)
-                
+            cnt += 1
+    return cnt
 if __name__ == "__main__":
-    binarizationImage(INDEX_CAT)
+    cnt = binarizationImage(INDEX_CAT)
+    print("Binarization Image Size : %i" % cnt)
     
 
