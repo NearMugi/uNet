@@ -41,19 +41,29 @@ class Loader(object):
     def import_data(dir_original, dir_segmented, init_size=None, one_hot=True):
         # Generate paths of images to load
         # 読み込むファイルのパスリストを作成
-        paths_original, paths_segmented = Loader.generate_paths(dir_original, dir_segmented)
+        paths_original, paths_segmented = Loader.generate_paths(
+            dir_original, dir_segmented
+        )
 
         # Extract images to ndarray using paths
         # 画像データをndarrayに展開
-        images_original, images_segmented = Loader.extract_images(paths_original, paths_segmented, init_size, one_hot)
+        images_original, images_segmented = Loader.extract_images(
+            paths_original, paths_segmented, init_size, one_hot
+        )
 
         # Get a color palette
         # カラーパレットを取得
         image_sample_palette = Image.open(paths_segmented[0])
         palette = image_sample_palette.getpalette()
 
-        return DataSet(images_original, images_segmented, palette,
-                       augmenter=ia.ImageAugmenter(size=init_size, class_count=len(DataSet.CATEGORY)))
+        return DataSet(
+            images_original,
+            images_segmented,
+            palette,
+            augmenter=ia.ImageAugmenter(
+                size=init_size, class_count=len(DataSet.CATEGORY)
+            ),
+        )
 
     @staticmethod
     def generate_paths(dir_original, dir_segmented):
@@ -61,8 +71,12 @@ class Loader(object):
         paths_segmented = glob.glob(dir_segmented + "/*")
         if len(paths_original) == 0 or len(paths_segmented) == 0:
             raise FileNotFoundError("Could not load images.")
-        filenames = list(map(lambda path: path.split(os.sep)[-1].split(".")[0], paths_segmented))
-        paths_original = list(map(lambda filename: dir_original + "/" + filename + ".jpg", filenames))
+        filenames = list(
+            map(lambda path: path.split(os.sep)[-1].split(".")[0], paths_segmented)
+        )
+        paths_original = list(
+            map(lambda filename: dir_original + "/" + filename + ".jpg", filenames)
+        )
 
         return paths_original, paths_segmented
 
@@ -78,7 +92,9 @@ class Loader(object):
                 print(".", end="", flush=True)
         print(" Completed", flush=True)
         print("Loading segmented images", end="", flush=True)
-        for image in Loader.image_generator(paths_segmented, init_size, normalization=False):
+        for image in Loader.image_generator(
+            paths_segmented, init_size, normalization=False
+        ):
             images_segmented.append(image)
             if len(images_segmented) % 200 == 0:
                 print(".", end="", flush=True)
@@ -88,9 +104,10 @@ class Loader(object):
         # Cast to ndarray
         images_original = np.asarray(images_original, dtype=np.float32)
         images_segmented = np.asarray(images_segmented, dtype=np.uint8)
-
         # Change indices which correspond to "void" from 255
-        images_segmented = np.where(images_segmented == 255, len(DataSet.CATEGORY)-1, images_segmented)
+        # images_segmented = np.where(
+        #    images_segmented == 255, len(DataSet.CATEGORY) - 1, images_segmented
+        # )
 
         # One hot encoding using identity matrix.
         if one_hot:
@@ -113,7 +130,9 @@ class Loader(object):
         return identity[ndarray]
 
     @staticmethod
-    def image_generator(file_paths, init_size=None, normalization=True, antialias=False):
+    def image_generator(
+        file_paths, init_size=None, normalization=True, antialias=False
+    ):
         """
         `A generator which yields images deleted an alpha channel and resized.
          アルファチャネル削除、リサイズ(任意)処理を行った画像を返します
@@ -154,33 +173,14 @@ class Loader(object):
 
 
 class DataSet(object):
-    CATEGORY = (
-        "ground",
-        "aeroplane",
-        "bicycle",
-        "bird",
-        "boat",
-        "bottle",
-        "bus",
-        "car",
-        "cat",
-        "chair",
-        "cow",
-        "dining table",
-        "dog",
-        "horse",
-        "motorbike",
-        "person",
-        "potted plant",
-        "sheep",
-        "sofa",
-        "train",
-        "tv/monitor",
-        "void"
-    )
+    CATEGORY = ("ground", "cat")
 
-    def __init__(self, images_original, images_segmented, image_palette, augmenter=None):
-        assert len(images_original) == len(images_segmented), "images and labels must have same length."
+    def __init__(
+        self, images_original, images_segmented, image_palette, augmenter=None
+    ):
+        assert len(images_original) == len(
+            images_segmented
+        ), "images and labels must have same length."
         self._images_original = images_original
         self._images_segmented = images_segmented
         self._image_palette = image_palette
@@ -212,13 +212,20 @@ class DataSet(object):
 
     def __add__(self, other):
         images_original = np.concatenate([self.images_original, other.images_original])
-        images_segmented = np.concatenate([self.images_segmented, other.images_segmented])
-        return DataSet(images_original, images_segmented, self._image_palette, self._augmenter)
+        images_segmented = np.concatenate(
+            [self.images_segmented, other.images_segmented]
+        )
+        return DataSet(
+            images_original, images_segmented, self._image_palette, self._augmenter
+        )
 
     def shuffle(self):
         idx = np.arange(self._images_original.shape[0])
         np.random.shuffle(idx)
-        self._images_original, self._images_segmented = self._images_original[idx], self._images_segmented[idx]
+        self._images_original, self._images_segmented = (
+            self._images_original[idx],
+            self._images_segmented[idx],
+        )
 
     def transpose_by_color(self):
         self._images_original = self._images_original.transpose(0, 3, 1, 2)
@@ -226,8 +233,12 @@ class DataSet(object):
 
     def perm(self, start, end):
         end = min(end, len(self._images_original))
-        return DataSet(self._images_original[start:end], self._images_segmented[start:end], self._image_palette,
-                       self._augmenter)
+        return DataSet(
+            self._images_original[start:end],
+            self._images_segmented[start:end],
+            self._image_palette,
+            self._augmenter,
+        )
 
     def __call__(self, batch_size=20, shuffle=True, augment=True):
         """
@@ -246,17 +257,21 @@ class DataSet(object):
             self.shuffle()
 
         for start in range(0, self.length, batch_size):
-            batch = self.perm(start, start+batch_size)
+            batch = self.perm(start, start + batch_size)
             if augment:
                 assert self._augmenter is not None, "you have to set an augmenter."
-                yield self._augmenter.augment_dataset(batch, method=[ia.ImageAugmenter.NONE, ia.ImageAugmenter.FLIP])
+                yield self._augmenter.augment_dataset(
+                    batch, method=[ia.ImageAugmenter.NONE, ia.ImageAugmenter.FLIP]
+                )
             else:
                 yield batch
 
 
 if __name__ == "__main__":
-    dataset_loader = Loader(dir_original="../data_set/VOCdevkit/VOC2012/JPEGImages",
-                            dir_segmented="../data_set/VOCdevkit/VOC2012/SegmentationClass")
+    dataset_loader = Loader(
+        dir_original="../data_set/VOCdevkit/VOC2012/JPEGImages",
+        dir_segmented="../data_set/VOCdevkit/VOC2012/SegmentationClass",
+    )
     train, test = dataset_loader.load_train_test()
     train.print_information()
     test.print_information()
