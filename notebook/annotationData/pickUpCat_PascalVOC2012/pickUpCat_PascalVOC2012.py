@@ -3,7 +3,7 @@
 
 # # PascalVOC2012から特定のインデックス画像をピックアップする
 
-# In[1]:
+# In[2]:
 
 
 INPUT_PATH = '0_input\VOCdevkit\VOC2012'
@@ -18,7 +18,7 @@ INDEX_DOG = 12
 
 # ## 特定のインデックスを抽出&別フォルダに出力
 
-# In[2]:
+# In[4]:
 
 
 from PIL import Image
@@ -73,7 +73,7 @@ def getPickUpImage(idx):
     
 if __name__ == "__main__":
     targetImageList = getPickUpImage(INDEX_CAT)
-    targetImageList.extend(getPickUpImage(INDEX_DOG))
+    #targetImageList.extend(getPickUpImage(INDEX_DOG))
     print(len(targetImageList))
 
 
@@ -83,7 +83,7 @@ if __name__ == "__main__":
 # 新しいパレットを設定するのは以下のURL  
 # [インデックスカラーのカラーパレットの編集](https://teratail.com/questions/187368)
 
-# In[35]:
+# In[5]:
 
 
 from PIL import Image

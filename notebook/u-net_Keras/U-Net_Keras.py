@@ -8,310 +8,250 @@
 # * keras == 2.0.4  
 # * tensorflow == 1.15.0  
 
-# ## モデル
-
 # In[1]:
 
 
-import tensorflow as tf
-from util import loader as ld
+IMAGE_SIZE = 256
 
 
-class UNet:
-    def __init__(self, size=(128, 128), l2_reg=None):
-        self.model = self.create_model(size, l2_reg)
+# ## モデル  
 
-    @staticmethod
-    def create_model(size, l2_reg):
-        inputs = tf.placeholder(tf.float32, [None, size[0], size[1], 3])
-        teacher = tf.placeholder(tf.float32, [None, size[0], size[1], len(ld.DataSet.CATEGORY)])
-        is_training = tf.placeholder(tf.bool)
-
-        # 1, 1, 3
-        conv1_1 = UNet.conv(inputs, filters=64, l2_reg_scale=l2_reg, batchnorm_istraining=is_training)
-        conv1_2 = UNet.conv(conv1_1, filters=64, l2_reg_scale=l2_reg, batchnorm_istraining=is_training)
-        pool1 = UNet.pool(conv1_2)
-
-        # 1/2, 1/2, 64
-        conv2_1 = UNet.conv(pool1, filters=128, l2_reg_scale=l2_reg, batchnorm_istraining=is_training)
-        conv2_2 = UNet.conv(conv2_1, filters=128, l2_reg_scale=l2_reg, batchnorm_istraining=is_training)
-        pool2 = UNet.pool(conv2_2)
-
-        # 1/4, 1/4, 128
-        conv3_1 = UNet.conv(pool2, filters=256, l2_reg_scale=l2_reg, batchnorm_istraining=is_training)
-        conv3_2 = UNet.conv(conv3_1, filters=256, l2_reg_scale=l2_reg, batchnorm_istraining=is_training)
-        pool3 = UNet.pool(conv3_2)
-
-        # 1/8, 1/8, 256
-        conv4_1 = UNet.conv(pool3, filters=512, l2_reg_scale=l2_reg, batchnorm_istraining=is_training)
-        conv4_2 = UNet.conv(conv4_1, filters=512, l2_reg_scale=l2_reg, batchnorm_istraining=is_training)
-        pool4 = UNet.pool(conv4_2)
-
-        # 1/16, 1/16, 512
-        conv5_1 = UNet.conv(pool4, filters=1024, l2_reg_scale=l2_reg)
-        conv5_2 = UNet.conv(conv5_1, filters=1024, l2_reg_scale=l2_reg)
-        concated1 = tf.concat([UNet.conv_transpose(conv5_2, filters=512, l2_reg_scale=l2_reg), conv4_2], axis=3)
-
-        conv_up1_1 = UNet.conv(concated1, filters=512, l2_reg_scale=l2_reg)
-        conv_up1_2 = UNet.conv(conv_up1_1, filters=512, l2_reg_scale=l2_reg)
-        concated2 = tf.concat([UNet.conv_transpose(conv_up1_2, filters=256, l2_reg_scale=l2_reg), conv3_2], axis=3)
-
-        conv_up2_1 = UNet.conv(concated2, filters=256, l2_reg_scale=l2_reg)
-        conv_up2_2 = UNet.conv(conv_up2_1, filters=256, l2_reg_scale=l2_reg)
-        concated3 = tf.concat([UNet.conv_transpose(conv_up2_2, filters=128, l2_reg_scale=l2_reg), conv2_2], axis=3)
-
-        conv_up3_1 = UNet.conv(concated3, filters=128, l2_reg_scale=l2_reg)
-        conv_up3_2 = UNet.conv(conv_up3_1, filters=128, l2_reg_scale=l2_reg)
-        concated4 = tf.concat([UNet.conv_transpose(conv_up3_2, filters=64, l2_reg_scale=l2_reg), conv1_2], axis=3)
-
-        conv_up4_1 = UNet.conv(concated4, filters=64, l2_reg_scale=l2_reg)
-        conv_up4_2 = UNet.conv(conv_up4_1, filters=64, l2_reg_scale=l2_reg)
-        outputs = UNet.conv(conv_up4_2, filters=ld.DataSet.length_category(), kernel_size=[1, 1], activation=None)
-
-        return Model(inputs, outputs, teacher, is_training)
-
-    @staticmethod
-    def conv(inputs, filters, kernel_size=[3, 3], activation=tf.nn.relu, l2_reg_scale=None, batchnorm_istraining=None):
-        if l2_reg_scale is None:
-            regularizer = None
-        else:
-            regularizer = tf.contrib.layers.l2_regularizer(scale=l2_reg_scale)
-        conved = tf.layers.conv2d(
-            inputs=inputs,
-            filters=filters,
-            kernel_size=kernel_size,
-            padding="same",
-            activation=activation,
-            kernel_regularizer=regularizer
-        )
-        if batchnorm_istraining is not None:
-            conved = UNet.bn(conved, batchnorm_istraining)
-
-        return conved
-
-    @staticmethod
-    def bn(inputs, is_training):
-        normalized = tf.layers.batch_normalization(
-            inputs=inputs,
-            axis=-1,
-            momentum=0.9,
-            epsilon=0.001,
-            center=True,
-            scale=True,
-            training=is_training,
-        )
-        return normalized
-
-    @staticmethod
-    def pool(inputs):
-        pooled = tf.layers.max_pooling2d(inputs=inputs, pool_size=[2, 2], strides=2)
-        return pooled
-
-    @staticmethod
-    def conv_transpose(inputs, filters, l2_reg_scale=None):
-        if l2_reg_scale is None:
-            regularizer = None
-        else:
-            regularizer = tf.contrib.layers.l2_regularizer(scale=l2_reg_scale)
-        conved = tf.layers.conv2d_transpose(
-            inputs=inputs,
-            filters=filters,
-            strides=[2, 2],
-            kernel_size=[2, 2],
-            padding='same',
-            activation=tf.nn.relu,
-            kernel_regularizer=regularizer
-        )
-        return conved
+# In[2]:
 
 
-class Model:
-    def __init__(self, inputs, outputs, teacher, is_training):
-        self.inputs = inputs
-        self.outputs = outputs
-        self.teacher = teacher
-        self.is_training = is_training
+from keras.models import Model
+from keras.layers import Input
+from keras.layers.convolutional import Conv2D, ZeroPadding2D, Conv2DTranspose
+from keras.layers.merge import concatenate
+from keras.layers import LeakyReLU, BatchNormalization, Activation, Dropout
+
+class UNet(object):
+    def __init__(self, input_channel_count, output_channel_count, first_layer_filter_count):
+        self.INPUT_IMAGE_SIZE = 256
+        self.CONCATENATE_AXIS = -1
+        self.CONV_FILTER_SIZE = 4
+        self.CONV_STRIDE = 2
+        self.CONV_PADDING = (1, 1)
+        self.DECONV_FILTER_SIZE = 2
+        self.DECONV_STRIDE = 2
+
+        # (256 x 256 x input_channel_count)
+        inputs = Input((self.INPUT_IMAGE_SIZE, self.INPUT_IMAGE_SIZE, input_channel_count))
+
+        # エンコーダーの作成
+        # (128 x 128 x N)
+        enc1 = ZeroPadding2D(self.CONV_PADDING)(inputs)
+        enc1 = Conv2D(first_layer_filter_count, self.CONV_FILTER_SIZE, strides=self.CONV_STRIDE)(enc1)
+
+        # (64 x 64 x 2N)
+        filter_count = first_layer_filter_count*2
+        enc2 = self._add_encoding_layer(filter_count, enc1)
+
+        # (32 x 32 x 4N)
+        filter_count = first_layer_filter_count*4
+        enc3 = self._add_encoding_layer(filter_count, enc2)
+
+        # (16 x 16 x 8N)
+        filter_count = first_layer_filter_count*8
+        enc4 = self._add_encoding_layer(filter_count, enc3)
+
+        # (8 x 8 x 8N)
+        enc5 = self._add_encoding_layer(filter_count, enc4)
+
+        # (4 x 4 x 8N)
+        enc6 = self._add_encoding_layer(filter_count, enc5)
+
+        # (2 x 2 x 8N)
+        enc7 = self._add_encoding_layer(filter_count, enc6)
+
+        # (1 x 1 x 8N)
+        enc8 = self._add_encoding_layer(filter_count, enc7)
+
+        # デコーダーの作成
+        # (2 x 2 x 8N)
+        dec1 = self._add_decoding_layer(filter_count, True, enc8)
+        dec1 = concatenate([dec1, enc7], axis=self.CONCATENATE_AXIS)
+
+        # (4 x 4 x 8N)
+        dec2 = self._add_decoding_layer(filter_count, True, dec1)
+        dec2 = concatenate([dec2, enc6], axis=self.CONCATENATE_AXIS)
+
+        # (8 x 8 x 8N)
+        dec3 = self._add_decoding_layer(filter_count, True, dec2)
+        dec3 = concatenate([dec3, enc5], axis=self.CONCATENATE_AXIS)
+
+        # (16 x 16 x 8N)
+        dec4 = self._add_decoding_layer(filter_count, False, dec3)
+        dec4 = concatenate([dec4, enc4], axis=self.CONCATENATE_AXIS)
+
+        # (32 x 32 x 4N)
+        filter_count = first_layer_filter_count*4
+        dec5 = self._add_decoding_layer(filter_count, False, dec4)
+        dec5 = concatenate([dec5, enc3], axis=self.CONCATENATE_AXIS)
+
+        # (64 x 64 x 2N)
+        filter_count = first_layer_filter_count*2
+        dec6 = self._add_decoding_layer(filter_count, False, dec5)
+        dec6 = concatenate([dec6, enc2], axis=self.CONCATENATE_AXIS)
+
+        # (128 x 128 x N)
+        filter_count = first_layer_filter_count
+        dec7 = self._add_decoding_layer(filter_count, False, dec6)
+        dec7 = concatenate([dec7, enc1], axis=self.CONCATENATE_AXIS)
+
+        # (256 x 256 x output_channel_count)
+        dec8 = Activation(activation='relu')(dec7)
+        dec8 = Conv2DTranspose(output_channel_count, self.DECONV_FILTER_SIZE, strides=self.DECONV_STRIDE)(dec8)
+        dec8 = Activation(activation='sigmoid')(dec8)
+
+        self.UNET = Model(input=inputs, output=dec8)
+
+    def _add_encoding_layer(self, filter_count, sequence):
+        new_sequence = LeakyReLU(0.2)(sequence)
+        new_sequence = ZeroPadding2D(self.CONV_PADDING)(new_sequence)
+        new_sequence = Conv2D(filter_count, self.CONV_FILTER_SIZE, strides=self.CONV_STRIDE)(new_sequence)
+        new_sequence = BatchNormalization()(new_sequence)
+        return new_sequence
+
+    def _add_decoding_layer(self, filter_count, add_drop_layer, sequence):
+        new_sequence = Activation(activation='relu')(sequence)
+        new_sequence = Conv2DTranspose(filter_count, self.DECONV_FILTER_SIZE, strides=self.DECONV_STRIDE,
+                                       kernel_initializer='he_uniform')(new_sequence)
+        new_sequence = BatchNormalization()(new_sequence)
+        if add_drop_layer:
+            new_sequence = Dropout(0.5)(new_sequence)
+        return new_sequence
+
+    def get_model(self):
+        return self.UNET
+    
+
+
+# ## 前処理関連の関数
+
+# In[3]:
+
+
+# 値を-1から1に正規化する関数
+def normalize_x(image):
+    image = image/127.5 - 1
+    return image
+
+
+# 値を0から1に正規化する関数
+def normalize_y(image):
+    image = image/255
+    return image
+
+
+# 値を0から255に戻す関数
+def denormalize_y(image):
+    image = image*255
+    return image
+
+
+# インプット画像を読み込む関数
+def load_X(folder_path):
+    import os, cv2
+
+    image_files = os.listdir(folder_path)
+    image_files.sort()
+    images = np.zeros((len(image_files), IMAGE_SIZE, IMAGE_SIZE, 3), np.float32)
+    for i, image_file in enumerate(image_files):
+        image = cv2.imread(folder_path + os.sep + image_file)
+        image = cv2.resize(image, (IMAGE_SIZE, IMAGE_SIZE))
+        images[i] = normalize_x(image)
+    return images, image_files
+
+
+# ラベル画像を読み込む関数
+def load_Y(folder_path):
+    import os, cv2
+
+    image_files = os.listdir(folder_path)
+    image_files.sort()
+    images = np.zeros((len(image_files), IMAGE_SIZE, IMAGE_SIZE, 1), np.float32)
+    for i, image_file in enumerate(image_files):
+        image = cv2.imread(folder_path + os.sep + image_file, cv2.IMREAD_GRAYSCALE)
+        image = cv2.resize(image, (IMAGE_SIZE, IMAGE_SIZE))
+        image = image[:, :, np.newaxis]
+        images[i] = normalize_y(image)
+    return images
 
 
 # ## メイン処理
 
-# In[ ]:
+# In[4]:
 
 
-import argparse
-import random
-import tensorflow as tf
+import os
+import numpy as np
+from keras.optimizers import Adam
+import keras.backend as K
+from keras.callbacks import ModelCheckpoint, EarlyStopping
+#from unet import UNet
 
-from util import loader as ld
-from util import repoter as rp
-
-
-def load_dataset(train_rate):
-    loader = ld.Loader(
-        dir_original="data_set/VOCdevkit/VOC2012/JPEGImages",
-        dir_segmented="data_set/VOCdevkit/VOC2012/SegmentationClass",
-    )
-    return loader.load_train_test(train_rate=train_rate, shuffle=False)
-
-
-def train(parser):
-    # 訓練とテストデータを読み込みます
-    # Load train and test datas
-    train, test = load_dataset(train_rate=parser["trainrate"])
-    valid = train.perm(0, 30)
-    test = test.perm(0, 150)
-
-    # 結果保存用のインスタンスを作成します
-    # Create Reporter Object
-    reporter = rp.Reporter(parser=parser)
-    accuracy_fig = reporter.create_figure(
-        "Accuracy", ("epoch", "accuracy"), ["train", "test"]
-    )
-    loss_fig = reporter.create_figure("Loss", ("epoch", "loss"), ["train", "test"])
-
-    # GPUを使用するか
-    # Whether or not using a GPU
-    gpu = parser["gpu"]
-
-    # モデルの生成
-    # Create a model
-    model_unet = UNet(l2_reg=parser["l2reg"]).model
-
-    # 誤差関数とオプティマイザの設定をします
-    # Set a loss function and an optimizer
-    cross_entropy = tf.reduce_mean(
-        tf.nn.softmax_cross_entropy_with_logits(
-            labels=model_unet.teacher, logits=model_unet.outputs
-        )
-    )
-    update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-    with tf.control_dependencies(update_ops):
-        train_step = tf.train.AdamOptimizer(0.001).minimize(cross_entropy)
-
-    # 精度の算出をします
-    # Calculate accuracy
-    correct_prediction = tf.equal(
-        tf.argmax(model_unet.outputs, 3), tf.argmax(model_unet.teacher, 3)
-    )
-    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
-    # セッションの初期化をします
-    # Initialize session
-    gpu_config = tf.ConfigProto(
-        gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.7),
-        device_count={"GPU": 1},
-        log_device_placement=False,
-        allow_soft_placement=True,
-    )
-    sess = tf.InteractiveSession(config=gpu_config) if gpu else tf.InteractiveSession()
-    tf.global_variables_initializer().run()
-
-    # 保存
-    # saver = tf.train.Saver()
-
-    # モデルの訓練
-    # Train the model
-    epochs = parser["epoch"]
-    batch_size = parser["batchsize"]
-    is_augment = parser["augmentation"]
-    train_dict = {
-        model_unet.inputs: valid.images_original,
-        model_unet.teacher: valid.images_segmented,
-        model_unet.is_training: False,
-    }
-    test_dict = {
-        model_unet.inputs: test.images_original,
-        model_unet.teacher: test.images_segmented,
-        model_unet.is_training: False,
-    }
-
-    for epoch in range(epochs):
-        for batch in train(batch_size=batch_size, augment=is_augment):
-            # バッチデータの展開
-            inputs = batch.images_original
-            teacher = batch.images_segmented
-            # Training
-            sess.run(
-                train_step,
-                feed_dict={
-                    model_unet.inputs: inputs,
-                    model_unet.teacher: teacher,
-                    model_unet.is_training: True,
-                },
-            )
-
-        # 評価
-        # Evaluation
-        if epoch % 1 == 0:
-            # saver.save(sess, "/ckpt/model.ckpt")
-            loss_train = sess.run(cross_entropy, feed_dict=train_dict)
-            loss_test = sess.run(cross_entropy, feed_dict=test_dict)
-            accuracy_train = sess.run(accuracy, feed_dict=train_dict)
-            accuracy_test = sess.run(accuracy, feed_dict=test_dict)
-            print("Epoch:", epoch)
-            print("[Train] Loss:", loss_train, " Accuracy:", accuracy_train)
-            print("[Test]  Loss:", loss_test, "Accuracy:", accuracy_test)
-            accuracy_fig.add([accuracy_train, accuracy_test], is_update=True)
-            loss_fig.add([loss_train, loss_test], is_update=True)
-            if epoch % 3 == 0:
-                idx_train = random.randrange(10)
-                idx_test = random.randrange(100)
-                outputs_train = sess.run(
-                    model_unet.outputs,
-                    feed_dict={
-                        model_unet.inputs: [train.images_original[idx_train]],
-                        model_unet.is_training: False,
-                    },
-                )
-                outputs_test = sess.run(
-                    model_unet.outputs,
-                    feed_dict={
-                        model_unet.inputs: [test.images_original[idx_test]],
-                        model_unet.is_training: False,
-                    },
-                )
-                train_set = [
-                    train.images_original[idx_train],
-                    outputs_train[0],
-                    train.images_segmented[idx_train],
-                ]
-                test_set = [
-                    test.images_original[idx_test],
-                    outputs_test[0],
-                    test.images_segmented[idx_test],
-                ]
-                reporter.save_image_from_ndarray(
-                    train_set,
-                    test_set,
-                    train.palette,
-                    epoch,
-                    index_void=len(ld.DataSet.CATEGORY) - 1,
-                )
-
-    # 訓練済みモデルの評価
-    # Test the trained model
-    loss_test = sess.run(cross_entropy, feed_dict=test_dict)
-    accuracy_test = sess.run(accuracy, feed_dict=test_dict)
-    print("Result")
-    print("[Test]  Loss:", loss_test, "Accuracy:", accuracy_test)
-
-    sess.close()
-
-if __name__ == "__main__":
-    parser = {
-        "gpu": "store_true",
-        "epoch" : 250,
-        "batchsize" : 32,
-        "trainrate" : 0.85,
-        "augmentation" : "store_true",
-        "l2reg" : 0.0001
-    }
-    print(parser)
-    train(parser)
+# ダイス係数を計算する関数
+def dice_coef(y_true, y_pred):
+    y_true = K.flatten(y_true)
+    y_pred = K.flatten(y_pred)
+    intersection = K.sum(y_true * y_pred)
+    return 2.0 * intersection / (K.sum(y_true) + K.sum(y_pred) + 1)
 
 
-# In[ ]:
+# ロス関数
+def dice_coef_loss(y_true, y_pred):
+    return 1.0 - dice_coef(y_true, y_pred)
 
 
+# U-Netのトレーニングを実行する関数
+def train_unet():
+    # trainingDataフォルダ配下にleft_imagesフォルダを置いている
+    X_train, file_names = load_X('trainingData' + os.sep + 'original')
+    # trainingDataフォルダ配下にleft_groundTruthフォルダを置いている
+    Y_train = load_Y('trainingData' + os.sep + 'segmentation')
 
+    # 入力はBGR3チャンネル
+    input_channel_count = 3
+    # 出力はグレースケール1チャンネル
+    output_channel_count = 1
+    # 一番初めのConvolutionフィルタ枚数は64
+    first_layer_filter_count = 64
+    # U-Netの生成
+    network = UNet(input_channel_count, output_channel_count, first_layer_filter_count)
+    model = network.get_model()
+    model.compile(loss=dice_coef_loss, optimizer=Adam(), metrics=[dice_coef])
+
+    BATCH_SIZE = 12
+    NUM_EPOCH = 100
+    history = model.fit(X_train, Y_train, batch_size=BATCH_SIZE, epochs=NUM_EPOCH, verbose=1)
+    model.save_weights('unet_weights.h5')
+
+
+# 学習後のU-Netによる予測を行う関数
+def predict():
+    import cv2
+
+    # testDataフォルダ配下にleft_imagesフォルダを置いている
+    X_test, file_names = load_X('testData' + os.sep + 'original')
+
+    input_channel_count = 3
+    output_channel_count = 1
+    first_layer_filter_count = 64
+    network = UNet(input_channel_count, output_channel_count, first_layer_filter_count)
+    model = network.get_model()
+    model.load_weights('unet_weights.h5')
+    BATCH_SIZE = 12
+    Y_pred = model.predict(X_test, BATCH_SIZE)
+
+    for i, y in enumerate(Y_pred):
+        # testDataフォルダ配下にleft_imagesフォルダを置いている
+        img = cv2.imread('testData' + os.sep + 'original' + os.sep + file_names[i])
+        y = cv2.resize(y, (img.shape[1], img.shape[0]))
+        cv2.imwrite('prediction' + os.sep + 'prediction' + str(i) + '.png', denormalize_y(y))
+
+
+if __name__ == '__main__':
+    train_unet()
+    predict()
 
