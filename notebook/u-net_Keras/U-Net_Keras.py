@@ -181,7 +181,7 @@ def load_Y(folder_path):
 
 # ## メイン処理
 
-# In[4]:
+# In[5]:
 
 
 import os
@@ -206,10 +206,8 @@ def dice_coef_loss(y_true, y_pred):
 
 # U-Netのトレーニングを実行する関数
 def train_unet():
-    # trainingDataフォルダ配下にleft_imagesフォルダを置いている
-    X_train, file_names = load_X('trainingData' + os.sep + 'original')
-    # trainingDataフォルダ配下にleft_groundTruthフォルダを置いている
-    Y_train = load_Y('trainingData' + os.sep + 'segmentation')
+    X_train, file_names = load_X('trainingData' + os.sep + 'image')
+    Y_train = load_Y('trainingData' + os.sep + 'mask')
 
     # 入力はBGR3チャンネル
     input_channel_count = 3
@@ -232,8 +230,7 @@ def train_unet():
 def predict():
     import cv2
 
-    # testDataフォルダ配下にleft_imagesフォルダを置いている
-    X_test, file_names = load_X('testData' + os.sep + 'original')
+    X_test, file_names = load_X('testData' + os.sep + 'image')
 
     input_channel_count = 3
     output_channel_count = 1
@@ -245,8 +242,7 @@ def predict():
     Y_pred = model.predict(X_test, BATCH_SIZE)
 
     for i, y in enumerate(Y_pred):
-        # testDataフォルダ配下にleft_imagesフォルダを置いている
-        img = cv2.imread('testData' + os.sep + 'original' + os.sep + file_names[i])
+        img = cv2.imread('testData' + os.sep + 'image' + os.sep + file_names[i])
         y = cv2.resize(y, (img.shape[1], img.shape[0]))
         cv2.imwrite('prediction' + os.sep + 'prediction' + str(i) + '.png', denormalize_y(y))
 

@@ -93,7 +93,7 @@ if __name__ == "__main__":
 # [セマンティックセグメンテーションをやってみた](https://qiita.com/yakisobamilk/items/2470354c8d01aaf1e510)
 # 
 
-# In[4]:
+# In[3]:
 
 
 from PIL import Image
@@ -146,7 +146,7 @@ if __name__ == "__main__":
 # 
 # 
 
-# In[9]:
+# In[2]:
 
 
 from keras.preprocessing.image import ImageDataGenerator
@@ -156,13 +156,11 @@ def trainGenerator(image_folder, batch_size=20, save_to_dir=[None, None]):
     # 2つのジェネレータには同じパラメータを設定する必要がある
     data_gen_args = dict(
         rotation_range=90.,
-        width_shift_range=1.,
-        height_shift_range=1.,
         horizontal_flip=True,
         rescale=None
     )
     # Shuffle時のSeedも共通にしないといけない
-    seed = 1                    
+    seed = 256                    
 
     # ImageDataGeneratorを準備
     image_datagen = ImageDataGenerator(**data_gen_args)
@@ -203,7 +201,7 @@ if __name__ == '__main__':
         ]
     )
 
-    DATA_SIZE = 250
+    DATA_SIZE = 250 * 4
     cnt = 0
     for img, mask in temp_gen:
         cnt += 1
@@ -222,7 +220,7 @@ if __name__ == '__main__':
 # 新しいパレットを設定するのは以下のURL  
 # [インデックスカラーのカラーパレットの編集](https://teratail.com/questions/187368)
 
-# In[10]:
+# In[ ]:
 
 
 from PIL import Image
@@ -257,7 +255,7 @@ def binarizationImage(path):
             im_list = np.asarray(im)
             p = np.asarray(im, dtype=np.uint8)
             reduced = p.copy()
-            cond_p = (reduced[:,:,0] == 72) & (reduced[:,:,1] == 0) & (reduced[:,:,2] == 0)
+            cond_p = (reduced[:,:,0] >= 64) & (reduced[:,:,0] < 80) & (reduced[:,:,1] == 0) & (reduced[:,:,2] == 0)
             cond_f = np.logical_not(cond_p)
             reduced[cond_p] = 1
             reduced[cond_f] = 0

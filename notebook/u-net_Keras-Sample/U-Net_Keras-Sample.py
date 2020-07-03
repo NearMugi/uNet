@@ -181,7 +181,7 @@ def load_Y(folder_path):
 
 # ## メイン関数
 
-# In[7]:
+# In[ ]:
 
 
 import os
