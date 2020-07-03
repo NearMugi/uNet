@@ -3,38 +3,40 @@
 
 # # PascalVOC2012から特定のインデックス画像をピックアップする
 
-# In[5]:
+# In[1]:
 
 
-INPUT_PATH = '0_input\VOCdevkit\VOC2012'
-INPUT_JPEGIMAGE_PATH = '\JPEGImages\\'
-INPUT_SEGMENT_PATH = '\SegmentationClass\*'
-OUTPUT_SEG_PATH = '1_outputSegmentation\\'
-OUTPUT_BASE_PATH = '2_base\\'
-OUTPUT_ORI_PATH = OUTPUT_BASE_PATH + 'image\\'
-OUTPUT_BINARY_PATH = OUTPUT_BASE_PATH + 'mask\\'
-OUTPUT_AUGMENTATION_PATH = '3_augmentation\\'
+INPUT_PATH = '0_input\VOCdevkit\VOC2012\\'
+INPUT_IMAGE_PATH = 'JPEGImages\\'
+INPUT_MASK_PATH = 'SegmentationClass\\'
+SELECT_PATH = '1_select\\'
+BASE_PATH = '2_base\\'
+IMAGE_PATH = 'image\\'
+MASK_PATH = 'mask\\'
 INDEX_CAT = 8 
-INDEX_DOG = 12
 
 
 # ## 特定のインデックスを抽出&別フォルダに出力
 
-# In[2]:
+# In[3]:
 
 
 from PIL import Image
 import numpy as np
 from glob import glob
 
-def getPickUpImage(idx):
+def getPickUpImage(idx, path):
     ''' 
     指定したインデックス画像名を取得する
-    [input] インデックス
+    [input] インデックス, パス(inputImage, inputMask, outputImage, outputMask)
     [output] 画像名のList
     '''
+    inputImagePath = path[0]
+    imputMaskPath = path[1] + '*'
+    outputImagePath = path[2]
+    outputMaskPath = path[3]
     targetImageList = list()
-    files = glob(INPUT_PATH + INPUT_SEGMENT_PATH)
+    files = glob(imputMaskPath)
 
     # パレット(Numpy配列)を取得
     palette = np.array("")
@@ -64,18 +66,24 @@ def getPickUpImage(idx):
                 targetImageList.append(fn)
                 
                 # 別フォルダにコピーする
-                im.save(OUTPUT_SEG_PATH + fn + '.png', quality=95)
+                im.save(outputMaskPath + fn + '.png', quality=95)
+                
                 # 別フォルダにコピーする(オリジナル画像)
-                fileOri = INPUT_PATH + INPUT_JPEGIMAGE_PATH + fn + '.jpg'
+                fileOri = inputImagePath + fn + '.jpg'
                 with Image.open(fileOri) as imOri:
-                    imOri.save(OUTPUT_ORI_PATH + fn + '.jpg', quality=95)                
+                    imOri.save(outputImagePath + fn + '.jpg', quality=95)                
 
     print("[End] GetSize : %i" % cnt)
     return targetImageList
     
 if __name__ == "__main__":
-    targetImageList = getPickUpImage(INDEX_CAT)
-    #targetImageList.extend(getPickUpImage(INDEX_DOG))
+    path = [
+        INPUT_PATH + INPUT_IMAGE_PATH,
+        INPUT_PATH + INPUT_MASK_PATH,
+        SELECT_PATH + IMAGE_PATH,
+        SELECT_PATH + MASK_PATH
+    ]
+    targetImageList = getPickUpImage(INDEX_CAT, path)
     print(len(targetImageList))
 
 
@@ -85,7 +93,7 @@ if __name__ == "__main__":
 # [セマンティックセグメンテーションをやってみた](https://qiita.com/yakisobamilk/items/2470354c8d01aaf1e510)
 # 
 
-# In[3]:
+# In[4]:
 
 
 from PIL import Image
@@ -93,7 +101,7 @@ from glob import glob
 
 def reshapeImage(path):
     cnt = 0
-    files = glob(path)
+    files = glob(path + '*')
     for path in files:
         if path.find('.png') < 0 and path.find('.jpg') < 0:
             continue        
@@ -124,64 +132,10 @@ def crop_to_square(image):
     return image.crop((left, upper, right, bottom))
 
 if __name__ == "__main__":
-    cnt = reshapeImage(OUTPUT_SEG_PATH + '*')
-    print("reshape [%s] Size : %i" %(OUTPUT_SEG_PATH, cnt))
-    cnt = reshapeImage(OUTPUT_ORI_PATH + '*')
-    print("reshape [%s] Size : %i" %(OUTPUT_ORI_PATH, cnt))
-    
-
-
-# ## 2値化してフォルダにコピーする  
-# インデックスの扱いは以下のURLを参考にした  
-# [Numpyでインデックスカラー画像（VOC2012のマスク）→RGB画像への変換をする方法](https://blog.shikoan.com/numpy-indexedcolor-to-rgb/)  
-# 新しいパレットを設定するのは以下のURL  
-# [インデックスカラーのカラーパレットの編集](https://teratail.com/questions/187368)
-
-# In[4]:
-
-
-from PIL import Image
-import numpy as np
-from glob import glob
-
-def binarizationImage(idx):
-    ''' 
-    指定したインデックス画像のみ残して2値化する
-    [input] インデックス
-    [output] 変換したファイル数
-    '''
-    files = glob(OUTPUT_SEG_PATH + '*')
-    # 新しいパレット 0:黒(0,0,0), 1:白(255,255,255)
-    palette = np.zeros((256, 3), dtype=np.uint8)
-    palette[0] = [0, 0, 0]
-    palette[1] = [255, 255, 255]
-    palette = palette.reshape(-1).tolist()
-
-    cnt = 0
-    for path in files:
-        if path.find('.png') < 0:
-            continue
-        with Image.open(path) as im:
-            # ターゲットのインデックス以外は[0]に、
-            # ターゲットのインデックスは[1]に置き換える
-            p_array = np.asarray(im)
-            reduced = p_array.copy()
-            reduced[reduced != idx] = 0
-            reduced[reduced == idx] = 1
-            # 画像モードをPに変更する
-            #新しいパレットを設定する
-            pil_img = Image.fromarray(reduced)
-            pil_img.putpalette(palette)
-            
-            # 別フォルダにコピーする
-            pos = str(path).rfind("\\")
-            fn =path[pos + 1:]
-            pil_img.save(OUTPUT_BINARY_PATH + fn, quality=95)
-            cnt += 1
-    return cnt
-if __name__ == "__main__":
-    cnt = binarizationImage(INDEX_CAT)
-    print("Binarization Image Size : %i" % cnt)
+    cnt = reshapeImage(SELECT_PATH + IMAGE_PATH)
+    print("reshape [%s] Size : %i" %(IMAGE_PATH, cnt))
+    cnt = reshapeImage(SELECT_PATH + MASK_PATH)
+    print("reshape [%s] Size : %i" %(MASK_PATH, cnt))
     
 
 
@@ -192,50 +146,23 @@ if __name__ == "__main__":
 # 
 # 
 
-# In[13]:
+# In[9]:
 
 
 from keras.preprocessing.image import ImageDataGenerator
 import numpy as np
 
-def adjustData(img, mask):
-    # 元画像の方は255で割って正規化する
-    if np.max(img) > 1:
-        img = img / 255.
-
-    # マスク画像の方はOne-Hotベクトル化する
-    # パレットカラーをndarrayで取得する
-    # 0:黒(0,0,0), 1:白(255,255,255)
-    palette = np.zeros((2, 3), dtype=np.uint8)
-    palette[0] = [0, 0, 0]
-    palette[1] = [255, 255, 255]
-
-    # パレットとRGB値を比較してマスク画像をOne-hot化する
-    onehot = np.zeros((mask.shape[0], 256, 256, len(palette)), dtype=np.uint8)
-    for i in range(len(palette)):
-        # 現在カテゴリのRGB値を[R, G, B]の形で取得する
-        cat_color = palette[i]
-
-        # 画像が現在カテゴリ色と一致する画素に1を立てた(256, 256)のndarrayを作る
-        temp = np.where((mask[:, :, :, 0] == cat_color[0]) &
-                        (mask[:, :, :, 1] == cat_color[1]) &
-                        (mask[:, :, :, 2] == cat_color[2]), 1, 0)
-
-        # 現在カテゴリに結果を割り当てる
-        onehot[:, :, :, i] = temp
-
-    return img, onehot
-
 def trainGenerator(image_folder, batch_size=20, save_to_dir=[None, None]):
     # 2つのジェネレータには同じパラメータを設定する必要がある
     data_gen_args = dict(
         rotation_range=90.,
-        width_shift_range=1.,   # 元画像上でのシフト量128にzoom_ratioをかけてint型で設定する
-        height_shift_range=1.,  # 同上
+        width_shift_range=1.,
+        height_shift_range=1.,
         horizontal_flip=True,
-        rescale=None            # リスケールはadjustData()でやる
+        rescale=None
     )
-    seed = 1                    # Shuffle時のSeedも共通にしないといけない
+    # Shuffle時のSeedも共通にしないといけない
+    seed = 1                    
 
     # ImageDataGeneratorを準備
     image_datagen = ImageDataGenerator(**data_gen_args)
@@ -243,13 +170,14 @@ def trainGenerator(image_folder, batch_size=20, save_to_dir=[None, None]):
 
     # ジェネレータを準備
     image_generator = image_datagen.flow_from_directory(
-        directory=image_folder,
-        classes=['image'],      # directoryの下のフォルダを1つ選び、
-        class_mode=None,        # そのクラスだけを読み込んで、正解ラベルは返さない
-        target_size=(256, 256),
-        batch_size=batch_size,
-        seed=seed,
-        save_to_dir=save_to_dir[0]
+        directory = image_folder,
+        classes = ['image'], 
+        class_mode = None,
+        target_size = (256, 256),
+        batch_size = batch_size,
+        seed = seed,
+        save_to_dir = save_to_dir[0],
+        save_format = 'jpg'
     )
     mask_generator = mask_datagen.flow_from_directory(
         directory=image_folder,
@@ -258,20 +186,20 @@ def trainGenerator(image_folder, batch_size=20, save_to_dir=[None, None]):
         target_size=(256, 256),
         batch_size=batch_size,
         seed=seed,
-        save_to_dir=save_to_dir[1]
+        save_to_dir=save_to_dir[1],
+        save_format = 'png'
     )
-
+    
     for (img, mask) in zip(image_generator, mask_generator):
-        img, mask = adjustData(img, mask)
         yield img, mask    
 
 if __name__ == '__main__':
     temp_gen = trainGenerator(
-        OUTPUT_BASE_PATH, 
+        SELECT_PATH, 
         batch_size=1, 
         save_to_dir=[ 
-            OUTPUT_AUGMENTATION_PATH + 'image', 
-            OUTPUT_AUGMENTATION_PATH+ 'mask'
+            BASE_PATH + IMAGE_PATH, 
+            BASE_PATH + MASK_PATH
         ]
     )
 
@@ -283,4 +211,122 @@ if __name__ == '__main__':
             break
     
     print("[End]")
+
+
+# ## 2値化してフォルダにコピーする  
+# RGBからの2値化は以下のURLを参考にした  
+# [python，OpenCV，numpyによる色抽出・変換](https://teratail.com/questions/100301)  
+# 
+# インデックスの扱いは以下のURLを参考にした  
+# [Numpyでインデックスカラー画像（VOC2012のマスク）→RGB画像への変換をする方法](https://blog.shikoan.com/numpy-indexedcolor-to-rgb/)  
+# 新しいパレットを設定するのは以下のURL  
+# [インデックスカラーのカラーパレットの編集](https://teratail.com/questions/187368)
+
+# In[10]:
+
+
+from PIL import Image
+import numpy as np
+from glob import glob
+
+def binarizationImage(path):
+    ''' 
+    指定したインデックスカラーのみ残して2値化する
+    [input] パス(入力,出力)
+    [output] 変換したファイル数
+    '''
+    inputPath = path[0] + '*'
+    outputPath = path[1]
+    files = glob(inputPath)
+    # 新しいパレット 0:黒(0,0,0), 1:白(255,255,255)
+    palette = np.zeros((256, 3), dtype=np.uint8)
+    palette[0] = [0, 0, 0]
+    palette[1] = [255, 255, 255]
+    palette = palette.reshape(-1).tolist()
+
+    cnt = 0
+    for path in files:
+        if path.find('.png') < 0:
+            continue
+        with Image.open(path) as im:
+            if im.mode != 'RGB':
+                print("not RGB mode...")
+                continue
+            
+            #print(im.mode)
+            im_list = np.asarray(im)
+            p = np.asarray(im, dtype=np.uint8)
+            reduced = p.copy()
+            cond_p = (reduced[:,:,0] == 72) & (reduced[:,:,1] == 0) & (reduced[:,:,2] == 0)
+            cond_f = np.logical_not(cond_p)
+            reduced[cond_p] = 1
+            reduced[cond_f] = 0
+
+            # パレットモードの画像を出力する
+            base = np.zeros((256, 256), dtype=np.uint8)
+            for i in range(256):
+                for j in range(256):
+                    if reduced[i,j,0] > 0:
+                        base[i,j] = 1
+            
+            # 別フォルダにコピーする
+            with Image.fromarray(base, mode="P") as im:
+                # パレットの設定  
+                im.putpalette(palette)              
+                pos = str(path).rfind("\\")
+                fn =path[pos + 1:]
+                im.save(outputPath + fn, quality=95)
+                cnt += 1
+    return cnt
+if __name__ == "__main__":
+    path = [
+        BASE_PATH + MASK_PATH,
+        BASE_PATH + MASK_PATH
+    ]
+    cnt = binarizationImage(path)
+    print("Binarization Image Size : %i" % cnt)
+    
+
+
+# ## 2値化のテスト
+
+# In[3]:
+
+
+import cv2
+from PIL import Image
+import numpy as np
+from glob import glob
+
+# 新しいパレット 0:黒(0,0,0), 1:白(255,255,255)
+palette = np.zeros((256, 3), dtype=np.uint8)
+palette[0] = [0, 0, 0]
+palette[1] = [255, 255, 255]
+palette = palette.reshape(-1).tolist()
+    
+inputPath = BASE_PATH + MASK_PATH + "*"
+print(inputPath)
+files = glob(inputPath)
+for path in files:
+    with Image.open(path) as im:
+        #print(im.mode)
+        im_list = np.asarray(im)
+        p = np.asarray(im, dtype=np.uint8)
+        reduced = p.copy()
+        cond_p = (reduced[:,:,0] == 72) & (reduced[:,:,1] == 0) & (reduced[:,:,2] == 0)
+        cond_f = np.logical_not(cond_p)
+        reduced[cond_p] = 1
+        reduced[cond_f] = 0
+        
+        # パレットモードの画像を出力する
+        base = np.zeros((256, 256), dtype=np.uint8)
+        for i in range(256):
+            for j in range(256):
+                if reduced[i,j,0] > 0:
+                    base[i,j] = 1
+
+        with Image.fromarray(base, mode="P") as im:
+            im.putpalette(palette)  # パレットの設定  
+            im.save(path, quality=95)
+    
 
