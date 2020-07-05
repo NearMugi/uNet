@@ -232,9 +232,11 @@ if __name__ == '__main__':
 
 # ## 学習結果のテスト
 
-# In[4]:
+# In[6]:
 
 
+import os
+import numpy as np
 # 学習後のU-Netによる予測を行う関数
 def predict():
     import cv2
