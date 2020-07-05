@@ -146,20 +146,22 @@ if __name__ == "__main__":
 # 
 # 
 
-# In[2]:
+# In[10]:
 
 
 from keras.preprocessing.image import ImageDataGenerator
 import numpy as np
 
 def trainGenerator(image_folder, batch_size=20, save_to_dir=[None, None]):
-    # 2つのジェネレータには同じパラメータを設定する必要がある
+    # 2つのジェネレータに同じパラメータを設定する
     data_gen_args = dict(
-        rotation_range=90.,
-        horizontal_flip=True,
+        rotation_range = 90.,
+        zoom_range=0.2,
+        horizontal_flip = True,
+        vertical_flip = True,
         rescale=None
     )
-    # Shuffle時のSeedも共通にしないといけない
+    # Shuffle時のSeedは共通
     seed = 256                    
 
     # ImageDataGeneratorを準備
@@ -201,7 +203,7 @@ if __name__ == '__main__':
         ]
     )
 
-    DATA_SIZE = 250 * 4
+    DATA_SIZE = 250 * 8
     cnt = 0
     for img, mask in temp_gen:
         cnt += 1
@@ -220,7 +222,7 @@ if __name__ == '__main__':
 # 新しいパレットを設定するのは以下のURL  
 # [インデックスカラーのカラーパレットの編集](https://teratail.com/questions/187368)
 
-# In[ ]:
+# In[11]:
 
 
 from PIL import Image

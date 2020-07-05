@@ -225,6 +225,15 @@ def train_unet():
     history = model.fit(X_train, Y_train, batch_size=BATCH_SIZE, epochs=NUM_EPOCH, verbose=1)
     model.save_weights('unet_weights.h5')
 
+if __name__ == '__main__':
+    train_unet()
+    
+
+
+# ## 学習結果のテスト
+
+# In[4]:
+
 
 # 学習後のU-Netによる予測を行う関数
 def predict():
@@ -244,10 +253,8 @@ def predict():
     for i, y in enumerate(Y_pred):
         img = cv2.imread('testData' + os.sep + 'image' + os.sep + file_names[i])
         y = cv2.resize(y, (img.shape[1], img.shape[0]))
-        cv2.imwrite('prediction' + os.sep + 'prediction' + str(i) + '.png', denormalize_y(y))
-
+        cv2.imwrite('testData' + os.sep + 'mask' + os.sep + file_names[i] + '.png', denormalize_y(y))
 
 if __name__ == '__main__':
-    train_unet()
-    predict()
+    predict()        
 
