@@ -11,7 +11,7 @@
 # ./images_125px/2007_000032.png,./labels_125px/2007_000032.png  
 # 
 
-# In[1]:
+# In[2]:
 
 
 TRAIN_CSV = 'u-net_train.csv'
@@ -19,10 +19,10 @@ VAL_CSV = 'u-net_val.csv'
 
 TRAINING_PATH = 'trainingData'
 IMAGE_PATH = 'image'
-MASK_PATH = 'mask'
+MASK_PATH = 'maskGrey'
 
 
-# In[4]:
+# In[3]:
 
 
 from PIL import Image
@@ -38,8 +38,8 @@ def reshapeImage(path):
             # 画像の短辺に合わせて正方形化
             im = crop_to_square(im)
 
-            # 125*125にリサイズ
-            im = im.resize((125, 125))
+            # 64*64にリサイズ
+            im = im.resize((64, 64))
 
             # アルファチャネルがあればRGBに変換
             if im.mode == 'RGBA':
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     
 
 
-# In[5]:
+# In[4]:
 
 
 import os

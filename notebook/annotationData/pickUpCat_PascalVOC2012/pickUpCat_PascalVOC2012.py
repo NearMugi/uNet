@@ -3,7 +3,7 @@
 
 # # PascalVOC2012から特定のインデックス画像をピックアップする
 
-# In[1]:
+# In[20]:
 
 
 INPUT_PATH = '0_input\VOCdevkit\VOC2012\\'
@@ -13,6 +13,8 @@ SELECT_PATH = '1_select\\'
 BASE_PATH = '2_base\\'
 IMAGE_PATH = 'image\\'
 MASK_PATH = 'mask\\'
+MASK_PALETTE_PATH = 'maskPalette\\'
+MASK_GREY_PATH = 'maskGrey\\'
 INDEX_CAT = 8 
 
 
@@ -93,7 +95,7 @@ if __name__ == "__main__":
 # [セマンティックセグメンテーションをやってみた](https://qiita.com/yakisobamilk/items/2470354c8d01aaf1e510)
 # 
 
-# In[3]:
+# In[4]:
 
 
 from PIL import Image
@@ -146,7 +148,7 @@ if __name__ == "__main__":
 # 
 # 
 
-# In[10]:
+# In[6]:
 
 
 from keras.preprocessing.image import ImageDataGenerator
@@ -213,7 +215,7 @@ if __name__ == '__main__':
     print("[End]")
 
 
-# ## 2値化してフォルダにコピーする  
+# ## 2値化してフォルダにコピーする  (出力はパレットモード)
 # RGBからの2値化は以下のURLを参考にした  
 # [python，OpenCV，numpyによる色抽出・変換](https://teratail.com/questions/100301)  
 # 
@@ -222,7 +224,7 @@ if __name__ == '__main__':
 # 新しいパレットを設定するのは以下のURL  
 # [インデックスカラーのカラーパレットの編集](https://teratail.com/questions/187368)
 
-# In[11]:
+# In[22]:
 
 
 from PIL import Image
@@ -252,9 +254,8 @@ def binarizationImage(path):
             if im.mode != 'RGB':
                 print("not RGB mode...")
                 continue
-            
-            #print(im.mode)
-            im_list = np.asarray(im)
+                
+            # 特定の色を白、それ以外を黒にする
             p = np.asarray(im, dtype=np.uint8)
             reduced = p.copy()
             cond_p = (reduced[:,:,0] >= 64) & (reduced[:,:,0] < 80) & (reduced[:,:,1] == 0) & (reduced[:,:,2] == 0)
@@ -281,11 +282,65 @@ def binarizationImage(path):
 if __name__ == "__main__":
     path = [
         BASE_PATH + MASK_PATH,
-        BASE_PATH + MASK_PATH
+        BASE_PATH + MASK_PALETTE_PATH
     ]
     cnt = binarizationImage(path)
     print("Binarization Image Size : %i" % cnt)
     
+
+
+# ## 2値化してフォルダにコピーする  (出力はグレースケール)
+
+# In[21]:
+
+
+from PIL import Image
+import numpy as np
+from glob import glob
+
+def binarizationImage(path):
+    ''' 
+    指定したインデックスカラーのみ残して2値化する
+    [input] パス(入力,出力)
+    [output] 変換したファイル数
+    '''
+    inputPath = path[0] + '*'
+    outputPath = path[1]
+    files = glob(inputPath)
+
+    cnt = 0
+    for path in files:
+        if path.find('.png') < 0:
+            continue
+        with Image.open(path) as im:
+            if im.mode != 'RGB':
+                print("not RGB mode...")
+                continue
+            
+            # 特定の色を白、それ以外を黒にする
+            p = np.asarray(im, dtype=np.uint8)
+            reduced = p.copy()            
+            cond_p = (reduced[:,:,0] >= 64) & (reduced[:,:,0] < 80) & (reduced[:,:,1] == 0) & (reduced[:,:,2] == 0)
+            cond_f = np.logical_not(cond_p)
+            reduced[cond_p] = [255, 255, 255]
+            reduced[cond_f] = [0, 0, 0]
+            
+            # 保存
+            with Image.fromarray(np.uint8(reduced)) as im:
+                # 白黒モードにする
+                im_grey = im.convert('1')
+                pos = str(path).rfind("\\")
+                fn =path[pos + 1:]
+                im_grey.save(outputPath + fn, quality=95)
+                cnt += 1
+    return cnt
+if __name__ == "__main__":
+    path = [
+        BASE_PATH + MASK_PATH,
+        BASE_PATH + MASK_GREY_PATH
+    ]
+    cnt = binarizationImage(path)
+    print("Binarization Image Size : %i" % cnt)
 
 
 # ## 2値化のテスト
